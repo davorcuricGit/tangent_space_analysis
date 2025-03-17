@@ -3,6 +3,22 @@ import matplotlib.pyplot as plt
 from scipy.linalg import logm,expm, sqrtm
 from scipy.stats import zscore
 
+
+class FC:
+    def __init__(self,fc, subject, state = 'rest', session = 1):
+        self.fc = fc
+        self.subject = subject
+        self.state = state
+        self.size = np.shape(fc)
+        self.tsfc = dict()
+
+    def tangent_space_projection(self, reg, refinv = None):
+        if refinv is None:
+            refinv = np.identity(self.size[0])
+        tsfc = logm(refinv @ (self.fc + reg*np.identity(self.size[0])) @ refinv)#tsa.tangent_space(self.fc, reg, ref_FC = reference)
+        self.tsfc[reg] = tsfc
+        return tsfc
+
 def get_reference_inv(ref_FC, reg = 1):
     ref = [logm(f + reg*np.identity(np.shape(f)[0])) for f in ref_FC];
     ref = expm(np.mean(ref, axis = 0))
@@ -15,15 +31,15 @@ def calc_tangentspace_FCs(test_FC, invref, reg = 1):
     TS = np.array([f[np.triu_indices(np.shape(test_FC[0])[0],k = 1)] for f in TS])
     return TS
 
-def tangent_space(test_FC, reg, ref_FC = None):
+def tangent_space(fc, reg, ref_FC = None):
     
     if ref_FC is None:
-        refinv = reg*np.identity(np.shape(test_FC[0])[0])
+        refinv = reg*np.identity(np.shape(fc[0])[0])
     else:
-        refinv = get_reference_inv(ref_FC, reg)
+        refinv = get_reference_inv(fc, reg)
 
     
-    TS = calc_tangentspace_FCs(test_FC, refinv, reg)
+    TS = calc_tangentspace_FCs(fc, refinv, reg)
     return TS
 
 def get_ref_and_test_FC(FCs, rest_df, refidx, subject = None):
