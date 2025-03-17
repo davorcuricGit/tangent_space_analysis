@@ -1,7 +1,7 @@
 import numpy as np
-import matplotlib.pyplot as plt
-from scipy.linalg import logm,expm, sqrtm
-from scipy.stats import zscore
+#import matplotlib.pyplot as plt
+#from scipy.linalg import logm,expm, sqrtm
+#from scipy.stats import zscore
 
 def get_reference_inv(ref_FC, reg = 1):
     ref = [logm(f + reg*np.identity(np.shape(f)[0])) for f in ref_FC];
