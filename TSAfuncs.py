@@ -53,6 +53,39 @@ def get_regularization_flow(FCs, regvals):
 
     return regflow, df
 
+def plot_regflow_pca(Y, c1, df, labels):
+    #input: 
+    # Y is the pca scores
+    # c1 is principle component
+    # df is the regflow dataframe
+    # labels is the labels you want to colour
+    
+    c2 = c1 + 1
+    unique_labels = list(set(labels))
+
+    #first we need to make joint labels as this is what will let us find the curves
+    subjects = df['subject'].values
+    sessions = df['session'].values
+    states = df['state'].values
+    joint_labels = list(zip(subjects, sessions,states))
+    unique_joint_labels = list(set(joint_labels))
+
+
+    label_colors = plt.cm.jet(np.linspace(0,1,len(unique_labels)))# Initialize holder for trajectories
+    color_dict = dict()
+    for i,val in enumerate(unique_labels):
+        color_dict[val] = label_colors[i]
+
+ 
+    fig,ax = plt.subplots(1)
+    for label in unique_joint_labels:
+        idx = [i for i,x in enumerate(joint_labels) if x == label]
+
+        x = Y[idx, c1]
+        y = Y[idx, c2]
+        ax.plot(x, y, alpha=0.7, color = color_dict[labels[idx[0]]])
+
+
 def get_reference_inv(ref_FC, reg = 1):
     ref = [logm(f + reg*np.identity(np.shape(f)[0])) for f in ref_FC];
     ref = expm(np.mean(ref, axis = 0))
@@ -90,35 +123,3 @@ def get_ref_and_test_FC(FCs, rest_df, refidx, subject = None):
     ref_FC = [FCs[i] for i in refindex]
     test_FC = [FCs[i] for i in testindex]
     return ref_FC, ref_df, test_FC, test_df
-
-def plot_pca_projections(Y, subjects,sessions,tasks, c1, c2, ax = None, fig = None, ):
-    
-    test = list(zip(subjects, sessions,tasks))
-    uqtest = list(set(test))
-    
-    colors = plt.cm.jet(np.linspace(0,1,11))# Initialize holder for trajectories
-    markers = {'Rest': 'o', 'Motor': 's', 'Memory': 'd', 'Mixed':'^'}
-    linestyles = {'Rest': '-', 'Motor': '--', 'Memory': '-.', 'Mixed':':'}
-    colordict = {'Rest': colors[0], 'Motor': colors[4], 'Memory': colors[7], 'Mixed': colors[10]}
-    
-    
-    if ax is None:
-        fig,ax = plt.subplots(2)
-    
-    for uq in uqtest:
-        idx = [i for i,x in enumerate(test) if x == uq]
-        
-        
-        x = Y[idx, c1]
-        y = Y[idx, c2]
-        ax[0].plot(x, y, alpha=0.7, color = colordict[uq[2]], linestyle = linestyles[uq[2]])
-        ax[0].plot(x[-1], y[-1], alpha=0.7, color = colordict[uq[2]], marker = markers[uq[2]])
-        #ax[0].plot(Y[idx[0],0], Y[idx[0],1], alpha=0.7, color = colors[uq[0]], marker = markers[uq[2]])
-    
-        x = Y[idx, c1]
-        y = Y[idx, c2]
-        ax[1].plot(x, y, alpha=0.7, color = colors[uq[0]], linestyle = linestyles[uq[2]])
-        ax[1].plot(x[-1], y[-1], alpha=0.7, color = colors[uq[0]], marker = markers[uq[2]])
-        
-    fig.set_size_inches(9, 16)
-    return fig,ax
