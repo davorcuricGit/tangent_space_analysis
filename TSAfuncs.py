@@ -15,29 +15,42 @@ class FC:
 
     def tangent_space_projection(self, reg, refinv = None):
         if refinv is None:
-            refinv = np.identity(self.size[0])
-        tsfc = logm(refinv @ (self.fc + reg*np.identity(self.size[0])) @ refinv)#tsa.tangent_space(self.fc, reg, ref_FC = reference)
+            #refinv = (1+1/reg)*np.identity(self.size[0])
+            #if the reference is not given, assume identity. In that case, the tsfc calculation can be simplified
+            tsfc = logm(1/(1+reg)*(self.fc + reg*np.identity(self.size[0])))#tsa.tangent_space(self.fc, reg, ref_FC = reference)
+        else:
+            tsfc = logm(refinv @ (self.fc + reg*np.identity(self.size[0])) @ refinv)#tsa.tangent_space(self.fc, reg, ref_FC = reference)
         self.tsfc[reg] = tsfc
         return tsfc
 
 
-def get_regularization_flow(FCs):
+def get_regularization_flow(FCs, regvals):
     #for each FC get the regularization flow, return vectorized version
     regflow = list()
-    df = pd.DataFrame(columns = ['subject', 'state','session'])
+    df = pd.DataFrame(columns = ['subject_cat', 'subject', 'state_cat', 'state', 'session'])
     subject = list()
     state = list()
     session = list()
     idx = np.triu_indices(FCs[0].size[0],1)
     for fc in FCs:
-        for key in fc.tsfc.keys():
+        for key in regvals:
             regflow.append(zscore(fc.tsfc[key][idx]))
             subject.append(fc.subject)
             state.append(fc.state)
             session.append(fc.session)
-    df['subject'] = subject
-    df['state'] = state
+    
     df['session'] = session
+
+    #subject will often have unique ids which are annoying to deal with, here convert to code
+    df['subject_cat'] = subject
+    df['subject_cat'] = df['subject_cat'].astype('category')  
+    df['subject'] = df['subject_cat'].cat.codes
+
+    #states are often catagorical, here we want to convert them to numeric
+    df['state_cat'] = state
+    df['state_cat'] = df['state_cat'].astype('category')
+    df['state'] = df['state_cat'].cat.codes
+
     return regflow, df
 
 def get_reference_inv(ref_FC, reg = 1):
