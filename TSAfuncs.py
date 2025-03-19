@@ -2,13 +2,14 @@ import numpy as np
 import matplotlib.pyplot as plt
 from scipy.linalg import logm,expm, sqrtm
 from scipy.stats import zscore
-
+import pandas as pd
 
 class FC:
     def __init__(self,fc, subject, state = 'rest', session = 1):
         self.fc = fc
         self.subject = subject
         self.state = state
+        self.session = session
         self.size = np.shape(fc)
         self.tsfc = dict()
 
@@ -18,6 +19,26 @@ class FC:
         tsfc = logm(refinv @ (self.fc + reg*np.identity(self.size[0])) @ refinv)#tsa.tangent_space(self.fc, reg, ref_FC = reference)
         self.tsfc[reg] = tsfc
         return tsfc
+
+
+def get_regularization_flow(FCs):
+    #for each FC get the regularization flow, return vectorized version
+    regflow = list()
+    df = pd.DataFrame(columns = ['subject', 'state','session'])
+    subject = list()
+    state = list()
+    session = list()
+    idx = np.triu_indices(FCs[0].size[0],1)
+    for fc in FCs:
+        for key in fc.tsfc.keys():
+            regflow.append(zscore(fc.tsfc[key][idx]))
+            subject.append(fc.subject)
+            state.append(fc.state)
+            session.append(fc.session)
+    df['subject'] = subject
+    df['state'] = state
+    df['session'] = session
+    return regflow, df
 
 def get_reference_inv(ref_FC, reg = 1):
     ref = [logm(f + reg*np.identity(np.shape(f)[0])) for f in ref_FC];
@@ -56,32 +77,6 @@ def get_ref_and_test_FC(FCs, rest_df, refidx, subject = None):
     ref_FC = [FCs[i] for i in refindex]
     test_FC = [FCs[i] for i in testindex]
     return ref_FC, ref_df, test_FC, test_df
-
-def get_regularization_flow(test_FC, test_df, start = -2, stop = 4, step = 5, ref_FC = None):
-    if ref_FC is not None:
-        ref_FC = np.array(ref_FC)
-    reglist = np.linspace(start,stop,step)
-    
-    regflow = np.array([])
-    subjects = np.tile(test_df['subject'].values, len(reglist))
-    sessions = np.tile(test_df['session'].values, len(reglist))
-    tasks = np.tile(test_df['task'].values, len(reglist))
-    for i,val in enumerate(reglist):
-        reg = 10**val
-        
-        TS = tangent_space(test_FC, reg, ref_FC); 
-        #print(np.shape(TS))
-        #TS = zscore(TS, axis = 0)
-        
-        if len(regflow) == 0:
-            regflow = TS
-        else:
-            regflow = np.concatenate([regflow, TS])
-    
-    
-    regflow = zscore(regflow, axis = 1)
-    
-    return regflow, subjects, sessions, tasks
 
 def plot_pca_projections(Y, subjects,sessions,tasks, c1, c2, ax = None, fig = None, ):
     
