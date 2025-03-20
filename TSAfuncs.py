@@ -27,10 +27,11 @@ class FC:
 def get_regularization_flow(FCs, regvals):
     #for each FC get the regularization flow, return vectorized version
     regflow = list()
-    df = pd.DataFrame(columns = ['subject_cat', 'subject', 'state_cat', 'state', 'session'])
+    df = pd.DataFrame(columns = ['subject_cat', 'subject', 'state_cat', 'state', 'reg', 'session'])
     subject = list()
     state = list()
     session = list()
+    reg = list()
     idx = np.triu_indices(FCs[0].size[0],1)
     for fc in FCs:
         for key in regvals:
@@ -38,8 +39,12 @@ def get_regularization_flow(FCs, regvals):
             subject.append(fc.subject)
             state.append(fc.state)
             session.append(fc.session)
+            reg.append(key)
     
+
+    regflow = zscore(regflow, axis = 0)
     df['session'] = session
+    df['reg'] = reg
 
     #subject will often have unique ids which are annoying to deal with, here convert to code
     df['subject_cat'] = subject
@@ -53,6 +58,17 @@ def get_regularization_flow(FCs, regvals):
 
     return regflow, df
 
+
+def get_join_labels(df):
+    
+    subjects = df['subject'].values
+    sessions = df['session'].values
+    states = df['state'].values
+    joint_labels = list(zip(subjects, sessions,states))
+    unique_joint_labels = list(set(joint_labels))
+    return joint_labels, unique_joint_labels
+
+
 def plot_regflow_pca(Y, c1, df, labels):
     #input: 
     # Y is the pca scores
@@ -64,11 +80,7 @@ def plot_regflow_pca(Y, c1, df, labels):
     unique_labels = list(set(labels))
 
     #first we need to make joint labels as this is what will let us find the curves
-    subjects = df['subject'].values
-    sessions = df['session'].values
-    states = df['state'].values
-    joint_labels = list(zip(subjects, sessions,states))
-    unique_joint_labels = list(set(joint_labels))
+    joint_labels, unique_joint_labels = get_join_labels(df)
 
 
     label_colors = plt.cm.jet(np.linspace(0,1,len(unique_labels)))# Initialize holder for trajectories
