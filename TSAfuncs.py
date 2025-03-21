@@ -1,7 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy.linalg import logm,expm, sqrtm
-from scipy.stats import zscore
+from scipy.stats import zscore, mode
 import pandas as pd
 
 class FC:
@@ -23,6 +23,101 @@ class FC:
         self.tsfc[reg] = tsfc
         return tsfc
 
+    def get_subject_fcs(FCs):
+        subject_fcs = dict()
+        for fc in FCs:
+            if fc.subject not in subject_fcs:
+                subject_fcs[fc.subject] = dict()
+            if fc.state not in subject_fcs[fc.subject]:
+                subject_fcs[fc.subject][fc.state] = dict()
+            if fc.session not in subject_fcs[fc.subject][fc.state]:
+                subject_fcs[fc.subject][fc.state][fc.session] = fc
+        return subject_fcs
+
+
+class test_retest:
+    #goal: randomly split FC sessions into two objects, one for training (datbase) and one for testing (target)
+    #input is a list of fc objects in
+    #output will be two lists, database and target
+    #database will be one random session from each subject
+    #target will be all the other sessions from the subject
+    def __init__(self, FCs):
+        self.database = list()
+        self.target = list()
+        self.subject_fcs = FC.get_subject_fcs(FCs)
+        self.split_sessions()
+
+
+    def split_sessions(self):
+        for subject in self.subject_fcs:
+            sessions = list(self.subject_fcs[subject]['rest'].keys())
+            if len(sessions) > 1:
+                train_session = np.random.choice(sessions, 1)[0]
+                test_sessions = list(set(sessions) - set([train_session]))
+                for session in test_sessions:
+                    self.database.append(self.subject_fcs[subject]['rest'][train_session])
+                    self.target.append(self.subject_fcs[subject]['rest'][session])
+    
+    def ts_test_retest(self, regvals, refinv = None):
+        #compute test restest using tangent space FCs across multiple regularization valyes.
+        #refinv is the inverse of the reference point in the tangent space. If None, the identity is used, if 'logm' then the log mean is used
+
+        if refinv is not None and refinv != 'logm':
+            print('refinv must be None or logm')
+        else:
+            for reg in regvals:
+                #ref = np.zeros(FCs[0].fc.shape)
+                if refinv == 'logm':
+                    refinv = np.linalg.inv(np.mean(np.array([logm(x.fc + 10**reg) for x in self.database]), axis = 0))
+
+                
+                [x.tangent_space_projection(reg = 10**reg, refinv = refinv) for x in self.database]
+                [x.tangent_space_projection(reg = 10**reg, refinv = refinv) for x in self.target ]
+        
+            regflow_db, df_db = get_regularization_flow(self.database, 10**regvals)
+            regflow_tg, df_tg = get_regularization_flow(self.target, 10**regvals)
+
+            df_tg = self.get_closest_database_subject(regflow_db, regflow_tg, df_db, df_tg, regvals)
+            score = self.get_test_retest_score(df_tg)
+            return score
+    
+
+    def classic_test_retest(self, regvals =[4]):
+        #this computes the classif test retest using FCs instead of TSFCs.
+        #However, FCs are equivalent to TSFCs with large regularization when the identity is used as the reference.
+        #so we can reuse the ts_test_retest code
+        score = self.ts_test_retest(np.array(regvals), refinv = None)
+        return score
+
+
+    #find which database subject is closest to which target subject
+    def get_closest_database_subject(self,regflow_db, regflow_tg, df_db, df_tg, regvals):
+        df_tg['closest'] = np.nan
+
+        for r in regvals:
+            idx_tg = np.where(df_tg['reg'].values == 10**r)[0]
+            idx_db = np.where(df_db['reg'].values == 10**r)[0]
+            
+            sub_regflow_db = regflow_db[idx_db][:]
+            sub_regflow_tg = regflow_tg[idx_tg][:]
+            
+            for m in range(np.shape(sub_regflow_tg)[0]):
+                D = np.zeros((len(sub_regflow_db),))
+                for i, db in enumerate(sub_regflow_db):
+                    D[i] = 1 - np.mean(np.multiply(zscore(sub_regflow_tg[m]), zscore(db)))
+                df_tg.loc[idx_tg[m], 'closest'] = df_db['subject'].values[idx_db[np.argmin(D)]]
+        return df_tg
+    
+
+    def get_test_retest_score(self,df_tg):
+        joint_labels, unique_joint_labels = get_join_labels(df_tg)
+        score = 0
+        for label in unique_joint_labels:
+            idx = [i for i,x in enumerate(joint_labels) if x == label]
+            guess = mode(df_tg.loc[idx, 'closest'].values)[0]
+            if guess == label[0]:
+                score = score + 1/len(unique_joint_labels)
+        return score
 
 def get_regularization_flow(FCs, regvals):
     #for each FC get the regularization flow, return vectorized version
