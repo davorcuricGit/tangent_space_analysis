@@ -50,13 +50,21 @@ class test_retest:
 
     def split_sessions(self):
         for subject in self.subject_fcs:
-            sessions = list(self.subject_fcs[subject]['rest'].keys())
-            if len(sessions) > 1:
-                train_session = np.random.choice(sessions, 1)[0]
-                test_sessions = list(set(sessions) - set([train_session]))
-                for session in test_sessions:
-                    self.database.append(self.subject_fcs[subject]['rest'][train_session])
-                    self.target.append(self.subject_fcs[subject]['rest'][session])
+            for state in self.subject_fcs[subject]:  # Iterate over all second-layer keys
+                sessions = list(self.subject_fcs[subject][state].keys())
+                if len(sessions) > 1:
+                    train_session = np.random.choice(sessions, 1)[0]
+                    test_sessions = list(set(sessions) - set([train_session]))
+                    for session in test_sessions:
+                        self.database.append(self.subject_fcs[subject][state][train_session])
+                        self.target.append(self.subject_fcs[subject][state][session])
+            # sessions = list(self.subject_fcs[subject]['rest'].keys())
+            # if len(sessions) > 1:
+            #     train_session = np.random.choice(sessions, 1)[0]
+            #     test_sessions = list(set(sessions) - set([train_session]))
+            #     for session in test_sessions:
+            #         self.database.append(self.subject_fcs[subject]['rest'][train_session])
+            #         self.target.append(self.subject_fcs[subject]['rest'][session])
     
     def ts_test_retest(self, regvals, refinv = None):
         #compute test restest using tangent space FCs across multiple regularization valyes.
