@@ -3,6 +3,7 @@ import matplotlib.pyplot as plt
 from scipy.linalg import logm,expm, sqrtm
 from scipy.stats import zscore, mode
 import pandas as pd
+import pdb
 
 class FC:
     def __init__(self,fc, subject, state = 'rest', session = 1):
@@ -86,17 +87,18 @@ class test_retest:
         #this computes the classif test retest using FCs instead of TSFCs.
         #However, FCs are equivalent to TSFCs with large regularization when the identity is used as the reference.
         #so we can reuse the ts_test_retest code
-        score = self.ts_test_retest(np.array(regvals), refinv = None)
+        score = self.ts_test_retest(np.array([10000]), refinv = None)
         return score
 
 
     #find which database subject is closest to which target subject
     def get_closest_database_subject(self,regflow_db, regflow_tg, df_db, df_tg, regvals):
-        df_tg['closest'] = np.nan
+        df_tg['closest subject'] = np.nan
+        df_tg['closest state'] = np.nan
 
         for r in regvals:
-            idx_tg = np.where(df_tg['reg'].values == 10**r)[0]
-            idx_db = np.where(df_db['reg'].values == 10**r)[0]
+            idx_tg = np.where(df_tg['reg'].values == r)[0]
+            idx_db = np.where(df_db['reg'].values == r)[0]
             
             sub_regflow_db = regflow_db[idx_db][:]
             sub_regflow_tg = regflow_tg[idx_tg][:]
@@ -105,19 +107,31 @@ class test_retest:
                 D = np.zeros((len(sub_regflow_db),))
                 for i, db in enumerate(sub_regflow_db):
                     D[i] = 1 - np.mean(np.multiply(zscore(sub_regflow_tg[m]), zscore(db)))
-                df_tg.loc[idx_tg[m], 'closest'] = df_db['subject'].values[idx_db[np.argmin(D)]]
+                df_tg.loc[idx_tg[m], 'closest subject'] = df_db['subject'].values[idx_db[np.argmin(D)]]
+                df_tg.loc[idx_tg[m], 'closest state'] = df_db['state'].values[idx_db[np.argmin(D)]]
+                
         return df_tg
     
 
     def get_test_retest_score(self,df_tg):
+
         joint_labels, unique_joint_labels = get_join_labels(df_tg)
-        score = 0
+        subject_score = 0
+        state_score = 0
         for label in unique_joint_labels:
             idx = [i for i,x in enumerate(joint_labels) if x == label]
-            guess = mode(df_tg.loc[idx, 'closest'].values)[0]
-            if guess == label[0]:
-                score = score + 1/len(unique_joint_labels)
-        return score
+            
+            #majority rule, closest is the one with the most votes
+            subject_guess = mode(df_tg.loc[idx, 'closest subject'].values)[0]
+            if subject_guess == label[0]:
+                subject_score = subject_score + 1/len(unique_joint_labels)
+
+            state_guess = mode(df_tg.loc[idx, 'closest state'].values)[0]
+            
+            if state_guess == label[2]:
+                state_score = state_score + 1/len(unique_joint_labels)    
+            
+        return subject_score, state_score
 
 
 def vectorize_FC(fc):
