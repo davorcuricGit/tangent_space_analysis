@@ -58,17 +58,11 @@ class test_retest:
                     for session in test_sessions:
                         self.database.append(self.subject_fcs[subject][state][train_session])
                         self.target.append(self.subject_fcs[subject][state][session])
-            # sessions = list(self.subject_fcs[subject]['rest'].keys())
-            # if len(sessions) > 1:
-            #     train_session = np.random.choice(sessions, 1)[0]
-            #     test_sessions = list(set(sessions) - set([train_session]))
-            #     for session in test_sessions:
-            #         self.database.append(self.subject_fcs[subject]['rest'][train_session])
-            #         self.target.append(self.subject_fcs[subject]['rest'][session])
     
     def ts_test_retest(self, regvals, refinv = None):
         #compute test restest using tangent space FCs across multiple regularization valyes.
-        #refinv is the inverse of the reference point in the tangent space. If None, the identity is used, if 'logm' then the log mean is used
+        #refinv specifies the method with which the inverse of the reference point in the tangent space. 
+        # If None, the identity is used, if 'logm' then the log mean of the database is used
 
         if refinv is not None and refinv != 'logm':
             print('refinv must be None or logm')
@@ -76,14 +70,12 @@ class test_retest:
             for reg in regvals:
                 #ref = np.zeros(FCs[0].fc.shape)
                 if refinv == 'logm':
-                    refinv = np.linalg.inv(np.mean(np.array([logm(x.fc + 10**reg) for x in self.database]), axis = 0))
-
-                
-                [x.tangent_space_projection(reg = 10**reg, refinv = refinv) for x in self.database]
-                [x.tangent_space_projection(reg = 10**reg, refinv = refinv) for x in self.target ]
+                    refinv = np.linalg.inv(np.mean(np.array([logm(x.fc + reg) for x in self.database]), axis = 0))
+                [x.tangent_space_projection(reg = reg, refinv = refinv) for x in self.database]
+                [x.tangent_space_projection(reg = reg, refinv = refinv) for x in self.target ]
         
-            regflow_db, df_db = get_regularization_flow(self.database, 10**regvals)
-            regflow_tg, df_tg = get_regularization_flow(self.target, 10**regvals)
+            regflow_db, df_db = get_regularization_flow(self.database, regvals)
+            regflow_tg, df_tg = get_regularization_flow(self.target, regvals)
 
             df_tg = self.get_closest_database_subject(regflow_db, regflow_tg, df_db, df_tg, regvals)
             score = self.get_test_retest_score(df_tg)
@@ -127,6 +119,11 @@ class test_retest:
                 score = score + 1/len(unique_joint_labels)
         return score
 
+
+def vectorize_FC(fc):
+    idx = np.triu_indices(np.shape(fc)[0],1)
+    return fc[idx]
+
 def get_regularization_flow(FCs, regvals):
     #for each FC get the regularization flow, return vectorized version
     regflow = list()
@@ -135,10 +132,10 @@ def get_regularization_flow(FCs, regvals):
     state = list()
     session = list()
     reg = list()
-    idx = np.triu_indices(FCs[0].size[0],1)
+    #idx = np.triu_indices(FCs[0].size[0],1)
     for fc in FCs:
         for key in regvals:
-            regflow.append(zscore(fc.tsfc[key][idx]))
+            regflow.append(zscore(vectorize_FC(fc.tsfc[key])))#fc.tsfc[key][idx]))
             subject.append(fc.subject)
             state.append(fc.state)
             session.append(fc.session)
