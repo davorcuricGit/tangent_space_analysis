@@ -86,11 +86,11 @@ class test_retest:
             return score
     
 
-    def classic_test_retest(self, regvals =[4]):
+    def classic_test_retest(self, regvals =[100000]):
         #this computes the classif test retest using FCs instead of TSFCs.
         #However, FCs are equivalent to TSFCs with large regularization when the identity is used as the reference.
         #so we can reuse the ts_test_retest code
-        score = self.ts_test_retest(np.array([10000]), refinv = None)
+        score = self.ts_test_retest(regvals = regvals, refinv = None)
         return score
 
 
