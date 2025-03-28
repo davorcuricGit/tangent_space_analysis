@@ -60,10 +60,13 @@ class test_retest:
                         self.database.append(self.subject_fcs[subject][state][train_session])
                         self.target.append(self.subject_fcs[subject][state][session])
     
-    def ts_test_retest(self, regvals, refinv = None):
+    def ts_test_retest(self, **kwargs):
         #compute test restest using tangent space FCs across multiple regularization valyes.
         #refinv specifies the method with which the inverse of the reference point in the tangent space. 
         # If None, the identity is used, if 'logm' then the log mean of the database is used
+
+        regvals = kwargs.get('regvals', [4])
+        refinv = kwargs.get('refinv', None)
 
         if refinv is not None and refinv != 'logm':
             print('refinv must be None or logm')
@@ -116,28 +119,30 @@ class test_retest:
     def get_test_retest_score(self,df_tg):
 
         joint_labels, unique_joint_labels = get_join_labels(df_tg)
-        subject_score = 0
-        state_score = 0
-        condition_subject_score = dict()
+        
+        
+        score = dict({'subject': 0, 'state': 0, 'condition': dict()})
         for label in unique_joint_labels:
             idx = [i for i,x in enumerate(joint_labels) if x == label]
             
             #majority rule, closest is the one with the most votes
+            #the score for the subject discrimination
             subject_guess = mode(df_tg.loc[idx, 'closest subject'].values)[0]
             if subject_guess == label[0]:
-                subject_score = subject_score + 1/len(unique_joint_labels)
+                score['subject'] = score['subject'] + 1/len(unique_joint_labels)
 
-            if label[2] not in condition_subject_score.keys():
-                condition_subject_score[label[2]] = 0
-            else:
-                if subject_guess == label[0]:
-                    condition_subject_score[label[2]] = condition_subject_score[label[2]] + 1/len(df_tg[df_tg['state'] == label[2]])
-
+            #the score for the state discrimination
             state_guess = mode(df_tg.loc[idx, 'closest state'].values)[0]
             if state_guess == label[2]:
-                state_score = state_score + 1/len(unique_joint_labels)    
-            
-        return subject_score, state_score, condition_subject_score
+                score['state'] = score['state'] + 1/len(unique_joint_labels)    
+
+            #the score for the subject discrimination conditional on the condition
+            if label[2] not in score['condition'].keys():
+                score['condition'][label[2]] = 0
+            else:
+                if subject_guess == label[0]:
+                    score['condition'][label[2]] = score['condition'][label[2]] + 1/len(df_tg[df_tg['state'] == label[2]])            
+        return score
 
 
 def vectorize_FC(fc):
@@ -180,7 +185,7 @@ def get_regularization_flow(FCs, regvals):
 
 
 def get_join_labels(df):
-    'here i am making a change'
+    
     subjects = df['subject'].values
     sessions = df['session'].values
     states = df['state'].values
