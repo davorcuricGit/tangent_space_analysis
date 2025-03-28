@@ -118,6 +118,7 @@ class test_retest:
         joint_labels, unique_joint_labels = get_join_labels(df_tg)
         subject_score = 0
         state_score = 0
+        condition_subject_score = dict()
         for label in unique_joint_labels:
             idx = [i for i,x in enumerate(joint_labels) if x == label]
             
@@ -126,12 +127,17 @@ class test_retest:
             if subject_guess == label[0]:
                 subject_score = subject_score + 1/len(unique_joint_labels)
 
+            if label[2] not in condition_subject_score.keys():
+                condition_subject_score[label[2]] = 0
+            else:
+                if subject_guess == label[0]:
+                    condition_subject_score[label[2]] = condition_subject_score[label[2]] + 1/len(df_tg[df_tg['state'] == label[2]])
+
             state_guess = mode(df_tg.loc[idx, 'closest state'].values)[0]
-            
             if state_guess == label[2]:
                 state_score = state_score + 1/len(unique_joint_labels)    
             
-        return subject_score, state_score
+        return subject_score, state_score, condition_subject_score
 
 
 def vectorize_FC(fc):
