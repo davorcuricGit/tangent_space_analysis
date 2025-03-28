@@ -120,7 +120,8 @@ class test_retest:
 
         joint_labels, unique_joint_labels = get_join_labels(df_tg)
         
-        
+        N1 = len(unique_joint_labels)
+
         score = dict({'subject': 0, 'state': 0, 'condition': dict()})
         for label in unique_joint_labels:
             idx = [i for i,x in enumerate(joint_labels) if x == label]
@@ -129,16 +130,16 @@ class test_retest:
             #the score for the subject discrimination
             subject_guess = mode(df_tg.loc[idx, 'closest subject'].values)[0]
             if subject_guess == label[0]:
-                score['subject'] = score['subject'] + 1/len(unique_joint_labels)
+                score['subject'] = score['subject'] + 1/N1
 
             #the score for the state discrimination
             state_guess = mode(df_tg.loc[idx, 'closest state'].values)[0]
             if state_guess == label[2]:
-                score['state'] = score['state'] + 1/len(unique_joint_labels)    
+                score['state'] = score['state'] + 1/N1    
 
             #the score for the subject discrimination conditional on the condition
             if label[2] not in score['condition'].keys():
-                score['condition'][label[2]] = 0
+                score['condition'][label[2]] = 1/len(df_tg[df_tg['state'] == label[2]]) 
             else:
                 if subject_guess == label[0]:
                     score['condition'][label[2]] = score['condition'][label[2]] + 1/len(df_tg[df_tg['state'] == label[2]])            
