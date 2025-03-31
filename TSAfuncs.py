@@ -4,6 +4,8 @@ from scipy.linalg import logm,expm, sqrtm
 from scipy.stats import zscore, mode
 import pandas as pd
 import pdb
+from sklearn.decomposition import PCA
+
 
 class FC:
     def __init__(self,fc, subject, state = 'rest', session = 1):
@@ -67,6 +69,9 @@ class test_retest:
 
         regvals = kwargs.get('regvals', [4])
         refinv = kwargs.get('refinv', None)
+        use_pca = kwargs.get('use_pca', False)
+        components = kwargs.get('components', None)
+        mode = kwargs.get('mode', None)
 
         if refinv is not None and refinv != 'logm':
             print('refinv must be None or logm')
@@ -80,6 +85,37 @@ class test_retest:
         
             regflow_db, df_db = get_regularization_flow(self.database, regvals)
             regflow_tg, df_tg = get_regularization_flow(self.target, regvals)
+
+            # Example: Apply PCA if requested
+            if use_pca:
+                if components is None:
+                    raise ValueError("components must be specified when use_pca is True.")
+                elif len([components]) == 1:
+                    pass
+                    #components = range(components)    
+                elif len(components) == 2:
+                    components = range(components[0],components[1])
+                else:
+                    raise ValueError("components must be either integer or 2 element array")
+                
+                pca = PCA(n_components=None)
+                
+                regflow_db = pca.fit_transform(regflow_db)
+                regflow_tg = pca.transform(regflow_tg)
+
+
+                if mode == 'lowpass':
+                    #remove the components with the highest variance
+                    regflow_db = regflow_db[:, components:]
+                    regflow_tg = regflow_tg[:, components:]
+                    print(np.shape(regflow_db))
+                if mode is None or mode == 'Classic' or mode == 'highpass':
+                    #classical PC
+                    regflow_db = regflow_db[:, :components]
+                    regflow_tg = regflow_tg[:, :components]
+                    print(np.shape(regflow_db))
+
+
 
             df_tg = self.get_closest_database_subject(regflow_db, regflow_tg, df_db, df_tg, regvals)
             score = self.get_test_retest_score(df_tg)
