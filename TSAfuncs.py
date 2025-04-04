@@ -104,18 +104,18 @@ class test_retest:
                 regflow_tg = pca.transform(regflow_tg)
 
 
-                if mode == 'lowpass':
+                if mode == 'lessthan':
                     #remove the components with the highest variance
                     regflow_db = regflow_db[:, components:]
                     regflow_tg = regflow_tg[:, components:]
-                    print(np.shape(regflow_db))
-                if mode is None or mode == 'Classic' or mode == 'highpass':
+                elif mode is None or mode == 'Classic' or mode == 'greaterthan':
                     #classical PC
                     regflow_db = regflow_db[:, :components]
                     regflow_tg = regflow_tg[:, :components]
-                    print(np.shape(regflow_db))
-
-
+                elif mode == 'equal':
+                    #single component
+                    regflow_db = regflow_db[:, components]
+                    regflow_tg = regflow_tg[:, components]
 
             df_tg = self.get_closest_database_subject(regflow_db, regflow_tg, df_db, df_tg, regvals)
             score = self.get_test_retest_score(df_tg)
